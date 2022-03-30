@@ -100,13 +100,13 @@ solve(double start, double end, double h, vector<double> y0, vector<double> c, v
 }
 
 double S(vector<double> y, double D, double d, double L) {
-    return (2 * M_PI * (D * D - (d + 2 * y[1]) * (d + 2 * y[1])) + 2 * M_PI * (d + 2 * y[1]) * (L - 2 * y[1])) * 1e-6;
+    return M_PI * (D * D / 2 - (d + 2 * y[1]) * (d + 2 * y[1]) + (d + 2 * y[1]) * (L - 2 * y[1])) * 1e-6;
 }
 
 double V(vector<double> y, double D, double d, double L, double V0) {
     return V0 +
-            (M_PI_4 *
-           L * (D * D - d * d) - D * D * (L - 2 * y[1]) + (d + 2 * y[1]) * (d + 2 * y[1]) * (L - 2 * y[1])) * 1e-9;
+           M_PI_4 *
+           (L * (D * D - d * d) - (D * D - (d + 2 * y[1]) * (d + 2 * y[1])) * (L - 2 * y[1])) * 1e-9;
 }
 
 double P(vector<double> y, double D, double d, double L, double V0) {
@@ -115,9 +115,16 @@ double P(vector<double> y, double D, double d, double L, double V0) {
 
 
 vector<double> f(double time, vector<double> y) {
-    return {10 / (pow(1e7, nu)) * pow(P(y, D, d, L, V0), nu) * rho * S(y, D, d, L) -
-            P(y, D, d, L, V0) * (M_PI * 1e-6 * 22 * 22 / 4) / 265.3190878,
-            10 / (pow(1e6, nu)) * pow(P(y, D, d, L, V0), nu)};
+    double sqr = S(y, D, d, L);
+    double v = V(y, D, d, L, V0);
+    double p = P(y, D, d, L, V0);
+    if (y[1] < 0.0399999) {
+        return {0.01 / (pow(1e7, nu)) * pow(p, nu) * rho * sqr -
+                p * (M_PI * 1e-6 * 22 * 22 / 4) / 1500,
+                0.01 / (pow(1e7, nu)) * pow(p, nu)};
+    } else {
+        return {-p * (M_PI * 1e-6 * 22 * 22 / 4) / 1500, 0};
+    }
 }
 
 
@@ -128,13 +135,18 @@ int main() {
                                 {0,   0,   1, 0}};
     vector<double> b = {1. / 6, 1. / 3, 1. / 3, 1. / 6};
     std::vector<double> c = {0, 0.5, 0.5, 1};
-    auto result = solve(0, 1, 0.001, {9.626e-5, 0}, c, A, b, f);
+    auto result = solve(0, 10, 0.01, {9.626e-5, 0}, c, A, b, f);/*0.1123*/
 //    auto result = solve(0, M_PI, 0.01, {0, 1}, c, A, b, f);
     fstream fout("test.csv", ios::out);
-    fout << "time, mass"<<endl;
-    for (int i=0; i<result.size();i++){
-        fout<<result[i].first<<", "<<result[i].second[1]<<endl;
+    fout << "time, mass, e" << endl;
+    for (int i = 0; i < result.size(); i++) {
+        fout << result[i].first << ", " << result[i].second[0] << ", " << result[i].second[1] << endl;
     }
-    cout << result.back().first << ' ' << result.back().second[1] << endl;
     fout.close();
+    fstream fout1("testP.csv", ios::out);
+    fout1 << "time, P" << endl;
+    for (int i = 0; i < result.size(); i++) {
+        fout1 << result[i].first << ", " << result[i].second[1] << ", " << result[i].second[0] << endl;
+    }
+    fout1.close();
 }
